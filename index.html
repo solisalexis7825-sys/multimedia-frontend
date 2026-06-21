@@ -11,7 +11,6 @@
         
         <div class="bg-white p-6 rounded-lg shadow-md h-fit md:col-span-1">
             <h2 class="text-xl font-bold mb-4 text-gray-800">Subir Elemento a NoSQL</h2>
-            
             <form id="formMultimedia" enctype="multipart/form-data" class="space-y-4">
                 <div>
                     <label class="block font-medium text-sm text-gray-700">Título del Elemento:</label>
@@ -44,26 +43,64 @@
             <div id="galeria" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 </div>
         </div>
+    </div>
 
+    <div id="modalEditar" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Registro NoSQL</h3>
+            <form id="formEditar" class="space-y-4">
+                <input type="hidden" id="editId">
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Nuevo Título:</label>
+                    <input type="text" id="editTitulo" required class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Nueva Descripción:</label>
+                    <textarea id="editDescripcion" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500" rows="3"></textarea>
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Nuevas Etiquetas (Separadas por comas):</label>
+                    <input type="text" id="editTags" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="cerrarModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded text-sm transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold transition">
+                        Actualizar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
-        // Cambia la dirección local por tu API de Render en vivo
-            const API_URL = 'https://multimedia-backend-p6xb.onrender.com/api/multimedia';
-            const form = document.getElementById('formMultimedia');
-            const galeria = document.getElementById('galeria');
+        const API_URL = 'https://multimedia-backend-p6xb.onrender.com/api/multimedia';
+        const form = document.getElementById('formMultimedia');
+        const galeria = document.getElementById('galeria');
+        
+        // Elementos del modal de edición
+        const modalEditar = document.getElementById('modalEditar');
+        const formEditar = document.getElementById('formEditar');
+        const editId = document.getElementById('editId');
+        const editTitulo = document.getElementById('editTitulo');
+        const editDescripcion = document.getElementById('editDescripcion');
+        const editTags = document.getElementById('editTags');
 
-        // Función para consultar los registros (READ) [cite: 141, 144]
+        // 1. READ: Cargar la galería
         async function cargarGaleria() {
             try {
                 const res = await fetch(API_URL);
                 const datos = await res.json();
-                galeria.innerHTML = ''; // Limpiar contenedor
+                galeria.innerHTML = '';
 
                 datos.forEach(item => {
-                    // Renderizado dinámico con etiquetas <img> y <audio controls> solicitadas 
                     const tarjeta = document.createElement('div');
                     tarjeta.className = "bg-white p-4 rounded-lg shadow-md border flex flex-col justify-between";
+                    
+                    // Convertir el array de tags de vuelta a texto plano para pasarlo fácilmente al editor
+                    const tagsTexto = item.tags ? item.tags.join(', ') : '';
+
                     tarjeta.innerHTML = `
                         <div>
                             <img src="${item.imagenUrl}" alt="${item.titulo}" class="w-full h-40 object-cover rounded-md mb-2">
@@ -74,9 +111,12 @@
                                 ${item.tags ? item.tags.map(t => `<span class="bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full">#${t}</span>`).join('') : ''}
                             </div>
                             
-                            <audio controls src="${item.audioUrl}" class="w-full mt-3 class-audio"></audio>
+                            <audio controls src="${item.audioUrl}" class="w-full mt-3"></audio>
                         </div>
-                        <div class="mt-4 pt-2 border-t flex justify-end">
+                        <div class="mt-4 pt-2 border-t flex justify-end space-x-2">
+                            <button onclick="abrirModal('${item._id}', '${item.titulo.replace(/'/g, "\\'")}', '${(item.descripcion || '').replace(/'/g, "\\'")}', '${tagsTexto.replace(/'/g, "\\'")}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-3 py-1 rounded transition">
+                                Editar
+                            </button>
                             <button onclick="eliminarElemento('${item._id}')" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded transition">
                                 Eliminar
                             </button>
@@ -89,20 +129,16 @@
             }
         }
 
-        // Función para enviar el formulario (CREATE) 
+        // 2. CREATE: Enviar nuevo elemento
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(form); // Recopila archivos y textos automáticamente 
-
+            const formData = new FormData(form);
             try {
-                const res = await fetch(API_URL, {
-                    method: 'POST',
-                    body: formData
-                });
+                const res = await fetch(API_URL, { method: 'POST', body: formData });
                 if(res.ok) {
                     alert('¡Elemento guardado con éxito!');
                     form.reset();
-                    cargarGaleria(); // Recargar visualmente
+                    cargarGaleria();
                 } else {
                     alert('Error en el servidor al intentar guardar.');
                 }
@@ -111,21 +147,61 @@
             }
         });
 
-        // Función para eliminar un elemento (DELETE) [cite: 146]
+        // 3. UPDATE: Funciones de la ventana modal
+        function abrirModal(id, titulo, descripcion, tags) {
+            editId.value = id;
+            editTitulo.value = titulo;
+            editDescripcion.value = descripcion;
+            editTags.value = tags;
+            modalEditar.classList.remove('hidden'); // Muestra el modal
+        }
+
+        function cerrarModal() {
+            modalEditar.classList.add('hidden'); // Oculta el modal
+        }
+
+        formEditar.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = editId.value;
+
+            const datosActualizados = {
+                titulo: editTitulo.value,
+                descripcion: editDescripcion.value,
+                tags: editTags.value
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datosActualizados)
+                });
+
+                if (res.ok) {
+                    alert('¡Registro actualizado correctamente!');
+                    cerrarModal();
+                    cargarGaleria(); // Refresca los cambios en pantalla
+                } else {
+                    alert('Error al actualizar en el servidor.');
+                }
+            } catch (error) {
+                console.error("Error al conectar con la API:", error);
+            }
+        });
+
+        // 4. DELETE: Eliminar elemento
         async function eliminarElemento(id) {
             if(confirm('¿Estás seguro de eliminar este registro multimedia?')) {
                 try {
                     const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-                    if(res.ok) {
-                        cargarGaleria(); // Recargar la lista [cite: 146]
-                    }
+                    if(res.ok) cargarGaleria();
                 } catch (error) {
                     console.error("Error al eliminar:", error);
                 }
             }
         }
 
-        // Carga inicial al abrir la página
+        // Carga inicial
         cargarGaleria();
     </script>
 </body>
