@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor Multimedia NoSQL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+    <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        <div class="bg-white p-6 rounded-lg shadow-md h-fit md:col-span-1">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Subir Elemento a NoSQL</h2>
+            
+            <form id="formMultimedia" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Título del Elemento:</label>
+                    <input type="text" id="titulo" name="titulo" required class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Descripción:</label>
+                    <textarea id="descripcion" name="descripcion" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500" rows="3"></textarea>
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Etiquetas / Tags (Separadas por comas):</label>
+                    <input type="text" id="tags" name="tags" placeholder="ej. música, paisaje, arte" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Seleccionar Imagen (PNG/JPG):</label>
+                    <input type="file" id="imagen" name="imagen" accept="image/*" required class="w-full text-sm mt-1">
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Seleccionar Audio (MP3/WAV):</label>
+                    <input type="file" id="audio" name="audio" accept="audio/*" required class="w-full text-sm mt-1">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700 transition duration-200">
+                    Guardar en la Nube
+                </button>
+            </form>
+        </div>
+
+        <div class="md:col-span-2">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Galería Multimedia Interactiva</h2>
+            <div id="galeria" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api/multimedia';
+        const form = document.getElementById('formMultimedia');
+        const galeria = document.getElementById('galeria');
+
+        // Función para consultar los registros (READ) [cite: 141, 144]
+        async function cargarGaleria() {
+            try {
+                const res = await fetch(API_URL);
+                const datos = await res.json();
+                galeria.innerHTML = ''; // Limpiar contenedor
+
+                datos.forEach(item => {
+                    // Renderizado dinámico con etiquetas <img> y <audio controls> solicitadas 
+                    const tarjeta = document.createElement('div');
+                    tarjeta.className = "bg-white p-4 rounded-lg shadow-md border flex flex-col justify-between";
+                    tarjeta.innerHTML = `
+                        <div>
+                            <img src="${item.imagenUrl}" alt="${item.titulo}" class="w-full h-40 object-cover rounded-md mb-2">
+                            <h3 class="font-bold text-lg text-gray-900">${item.titulo}</h3>
+                            <p class="text-gray-600 text-sm my-1">${item.descripcion || 'Sin descripción'}</p>
+                            
+                            <div class="flex flex-wrap gap-1 my-2">
+                                ${item.tags ? item.tags.map(t => `<span class="bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full">#${t}</span>`).join('') : ''}
+                            </div>
+                            
+                            <audio controls src="${item.audioUrl}" class="w-full mt-3 class-audio"></audio>
+                        </div>
+                        <div class="mt-4 pt-2 border-t flex justify-end">
+                            <button onclick="eliminarElemento('${item._id}')" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded transition">
+                                Eliminar
+                            </button>
+                        </div>
+                    `;
+                    galeria.appendChild(tarjeta);
+                });
+            } catch (error) {
+                console.error("Error al cargar la galería:", error);
+            }
+        }
+
+        // Función para enviar el formulario (CREATE) 
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form); // Recopila archivos y textos automáticamente 
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                if(res.ok) {
+                    alert('¡Elemento guardado con éxito!');
+                    form.reset();
+                    cargarGaleria(); // Recargar visualmente
+                } else {
+                    alert('Error en el servidor al intentar guardar.');
+                }
+            } catch (error) {
+                console.error("Error de red:", error);
+            }
+        });
+
+        // Función para eliminar un elemento (DELETE) [cite: 146]
+        async function eliminarElemento(id) {
+            if(confirm('¿Estás seguro de eliminar este registro multimedia?')) {
+                try {
+                    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                    if(res.ok) {
+                        cargarGaleria(); // Recargar la lista [cite: 146]
+                    }
+                } catch (error) {
+                    console.error("Error al eliminar:", error);
+                }
+            }
+        }
+
+        // Carga inicial al abrir la página
+        cargarGaleria();
+    </script>
+</body>
+</html>
