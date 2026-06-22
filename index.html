@@ -47,19 +47,27 @@
     <div id="modalEditar" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
             <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Registro NoSQL</h3>
-            <form id="formEditar" class="space-y-4">
-                <input type="hidden" id="editId">
+            <form id="formEditar" enctype="multipart/form-data" class="space-y-4">
+                <input type="hidden" id="editId" name="id">
                 <div>
                     <label class="block font-medium text-sm text-gray-700">Nuevo Título:</label>
-                    <input type="text" id="editTitulo" required class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                    <input type="text" id="editTitulo" name="titulo" required class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
                 </div>
                 <div>
                     <label class="block font-medium text-sm text-gray-700">Nueva Descripción:</label>
-                    <textarea id="editDescripcion" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500" rows="3"></textarea>
+                    <textarea id="editDescripcion" name="descripcion" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500" rows="3"></textarea>
                 </div>
                 <div>
                     <label class="block font-medium text-sm text-gray-700">Nuevas Etiquetas (Separadas por comas):</label>
-                    <input type="text" id="editTags" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                    <input type="text" id="editTags" name="tags" class="w-full border p-2 rounded text-sm mt-1 focus:outline-blue-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Cambiar Imagen (Opcional):</label>
+                    <input type="file" id="editImagen" name="imagen" accept="image/*" class="w-full text-sm mt-1">
+                </div>
+                <div>
+                    <label class="block font-medium text-sm text-gray-700">Cambiar Audio (Opcional):</label>
+                    <input type="file" id="editAudio" name="audio" accept="audio/*" class="w-full text-sm mt-1">
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
                     <button type="button" onclick="cerrarModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded text-sm transition">
@@ -85,7 +93,6 @@
         const editDescripcion = document.getElementById('editDescripcion');
         const editTags = document.getElementById('editTags');
 
-        // 1. READ: Obtener datos de la API y renderizar tarjetas
         async function cargarGaleria() {
             try {
                 const res = await fetch(API_URL);
@@ -136,7 +143,6 @@
             abrirModal(id, decodeURIComponent(tit), decodeURIComponent(desc), decodeURIComponent(tgs));
         }
 
-        // 2. CREATE: Subir nuevo elemento
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(form);
@@ -149,39 +155,32 @@
                 } else {
                     alert('Error en el servidor al intentar guardar.');
                 }
-            } catch (error) {
-                console.error("Error de red:", error);
-            }
+            } catch (error) { console.error("Error de red:", error); }
         });
 
-        // 3. UPDATE: Control del modal y peticiones PUT
         function abrirModal(id, titulo, descripcion, tags) {
             editId.value = id;
             editTitulo.value = titulo;
             editDescripcion.value = descripcion;
             editTags.value = tags;
+            // Limpiar inputs de archivos del modal para que no recuerden archivos previos
+            document.getElementById('editImagen').value = '';
+            document.getElementById('editAudio').value = '';
             modalEditar.classList.remove('hidden'); 
         }
 
-        function cerrarModal() {
-            modalEditar.classList.add('hidden'); 
-        }
+        function cerrarModal() { modalEditar.classList.add('hidden'); }
 
+        // UPDATE: Envío usando FormData para procesar los archivos multimedia adjuntos
         formEditar.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = editId.value;
-
-            const datosActualizados = {
-                titulo: editTitulo.value,
-                descripcion: editDescripcion.value,
-                tags: editTags.value
-            };
+            const formData = new FormData(formEditar);
 
             try {
                 const res = await fetch(`${API_URL}/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(datosActualizados)
+                    body: formData // Envía directamente los archivos y textos estructurados
                 });
 
                 if (res.ok) {
@@ -191,27 +190,19 @@
                 } else {
                     alert('Error al intentar actualizar en el servidor.');
                 }
-            } catch (error) {
-                console.error("Error al conectar con la API de edición:", error);
-            }
+            } catch (error) { console.error("Error al conectar con la API de edición:", error); }
         });
 
-        // 4. DELETE: Eliminar de la base de datos
         async function eliminarElemento(id) {
             if(confirm('¿Estás seguro de que deseas eliminar este registro multimedia?')) {
                 try {
                     const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
                     if(res.ok) cargarGaleria();
-                } catch (error) {
-                    console.error("Error al eliminar:", error);
-                }
+                } catch (error) { console.error("Error al eliminar:", error); }
             }
         }
 
-        // Inicialización robusta para evitar desfases de carga en Vercel
-        document.addEventListener('DOMContentLoaded', () => {
-            cargarGaleria();
-        });
+        document.addEventListener('DOMContentLoaded', () => { cargarGaleria(); });
     </script>
 </body>
 </html>
